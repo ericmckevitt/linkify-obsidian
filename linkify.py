@@ -44,8 +44,7 @@ def linkify(text, notes, current_note):
         pattern = r'\b' + re.escape(note) + r'\b'
         replacement = f'[[{note}]]'
 
-        # only replace first occurrence (cleaner output, still update for debate)
-        text = re.sub(pattern, replacement, text, count=1, flags=re.IGNORECASE)
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
 
     # restore existing links
     text = restore_links(text, links)
@@ -54,31 +53,34 @@ def linkify(text, notes, current_note):
 
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: python linkify.py <file_name.md>")
-        sys.exit(1)
-
-    # vault_path = Path(__file__).parent
     vault_path = Path(__file__).parent / "vault"
-    file_path = Path(sys.argv[1])
 
-    # handle relative paths
-    if not file_path.is_absolute():
-        file_path = vault_path / file_path
-
-    if not file_path.exists():
-        print(f"File not found: {file_path}")
+    if not vault_path.exists():
+        print(f"Vault folder not found: {vault_path}")
         sys.exit(1)
 
     notes = load_notes(vault_path)
-    content = file_path.read_text()
 
-    updated = linkify(content, notes, file_path.stem)
+    if len(sys.argv) == 2 and sys.argv[1] == "--all":
+        files = list(vault_path.glob("*.md"))
+    elif len(sys.argv) == 2:
+        file_path = Path(sys.argv[1])
+        if not file_path.is_absolute():
+            file_path = vault_path / file_path
 
-    file_path.write_text(updated)
+        if not file_path.exists():
+            print(f"File not found: {file_path}")
+            sys.exit(1)
 
-    print(f"Linkified: {file_path}")
+        files = [file_path]
+    else:
+        print("Usage:")
+        print("  python linkify.py <file.md>")
+        print("  python linkify.py --all")
+        sys.exit(1)
 
-
-if __name__ == "__main__":
-    main()
+    for f in files:
+        content = f.read_text()
+        updated = linkify(content, notes, f.stem)
+        f.write_text(updated)
+        print(f"Linkified: {f}")
