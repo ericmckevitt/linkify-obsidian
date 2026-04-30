@@ -4,6 +4,7 @@ from pathlib import Path
 
 EXCLUDE = {"README", "_index", "TEMPLATE"}
 
+
 def load_notes(vault_path):
     notes = []
     for f in vault_path.iterdir():
@@ -12,6 +13,7 @@ def load_notes(vault_path):
                 continue
             notes.append(f.stem)
     return notes
+
 
 def protect_existing_links(text):
     links = []
@@ -31,22 +33,23 @@ def restore_links(text, links):
 
 
 def linkify(text, notes, current_note):
-    # protect existing [[links]]
+    # Protect existing [[links]]
     text, links = protect_existing_links(text)
 
-    # sort longest names first to avoid partial matches
+    # Sort longest first to avoid partial matches (e.g., "Run" vs "Cloud Run")
     notes_sorted = sorted(notes, key=len, reverse=True)
 
     for note in notes_sorted:
         if note == current_note:
             continue
 
-        pattern = r'\b' + re.escape(note) + r'\b'
+        # Match full phrase, avoid partial words and existing [[links]]
+        pattern = r'(?<!\[\[)(?<!\w)' + re.escape(note) + r'(?!\w)(?!\]\])'
         replacement = f'[[{note}]]'
 
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
 
-    # restore existing links
+    # Restore original links
     text = restore_links(text, links)
 
     return text
@@ -61,10 +64,12 @@ def main():
 
     notes = load_notes(vault_path)
 
+    # Mode selection
     if len(sys.argv) == 2 and sys.argv[1] == "--all":
         files = list(vault_path.glob("*.md"))
     elif len(sys.argv) == 2:
         file_path = Path(sys.argv[1])
+
         if not file_path.is_absolute():
             file_path = vault_path / file_path
 
@@ -79,8 +84,17 @@ def main():
         print("  python linkify.py --all")
         sys.exit(1)
 
+    # Process files
     for f in files:
         content = f.read_text()
         updated = linkify(content, notes, f.stem)
-        f.write_text(updated)
-        print(f"Linkified: {f}")
+
+        if updated != content:
+            f.write_text(updated)
+            print(f"Updated: {f}")
+        else:
+            print(f"No changes: {f}")
+
+
+if __name__ == "__main__":
+    main()
